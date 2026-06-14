@@ -1,5 +1,5 @@
 {
-  "name": "fastify-template",
+  "name": "litverse-server",
   "version": "1.0.1",
   "description": "A modern Fastify TypeScript backend template with TypeBox validation, Drizzle ORM, built-in security plugins, and RESTful API design following GitHub API conventions.",
   "main": "app.ts",
