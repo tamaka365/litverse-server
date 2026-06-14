@@ -49,7 +49,8 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
 
       const token = fastify.jwt.sign({
         id: user.value.id!,
-        email: user.value.email
+        email: user.value.email,
+        role: (user.value as any).role || 'user'
       })
 
       reply.setCookie(config.COOKIE_NAME, token, {
