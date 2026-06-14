@@ -1,12 +1,12 @@
 -- ============================================
 -- 文件: 001-create-posts-table.sql
--- 描述: 创建文章表及索引
+-- 描述: 创建文章表及索引 (PostgreSQL 版)
 -- 表: posts
 -- 创建时间: 2025-01-15
 -- 作者: Pony
 -- ============================================
 CREATE TABLE IF NOT EXISTS posts (
-  id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  id SERIAL PRIMARY KEY NOT NULL,
   user_id INTEGER NOT NULL,
   title TEXT NOT NULL,
   content TEXT NOT NULL,
