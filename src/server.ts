@@ -1,8 +1,12 @@
 import closeWithGrace from 'close-with-grace'
 import Fastify from 'fastify'
 import fp from 'fastify-plugin'
+import fs from 'node:fs'
 
 import serviceApp from './app.js'
+
+// Ensure logs directory exists for pino/file transport
+fs.mkdirSync('./logs', { recursive: true })
 
 /**
  * Do not use NODE_ENV to determine what logger (or any env related feature) to use

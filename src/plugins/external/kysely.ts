@@ -1,8 +1,8 @@
 import { FastifyInstance } from 'fastify'
 import fp from 'fastify-plugin'
 
-import BetterSqlite3 from 'better-sqlite3'
-import { Kysely, SqliteDialect, sql } from 'kysely'
+import { Kysely, PostgresDialect, sql } from 'kysely'
+import pg from 'pg'
 
 import { type DB } from 'kysely-codegen'
 
@@ -14,14 +14,15 @@ declare module 'fastify' {
 
 export default fp(
   async (fastify: FastifyInstance, _opts) => {
-    const sqlite = new BetterSqlite3(fastify.config.DATABASE_URL)
-    sqlite.pragma('journal_mode = WAL')
-    sqlite.pragma('foreign_keys = ON')
-
     const kysely = new Kysely<DB>({
-      dialect: new SqliteDialect({ database: sqlite })
+      dialect: new PostgresDialect({
+        pool: new pg.Pool({
+          connectionString: fastify.config.DATABASE_URL
+        })
+      })
     })
 
+    // Test connection
     await sql`SELECT 1`.execute(kysely)
 
     fastify.decorate('kysely', kysely)

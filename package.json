@@ -8,7 +8,7 @@
     "start": "node dist/server.js",
     "build": "tsc",
     "dev": "tsx watch --env-file=.env ./src/server.ts",
-    "test": "c8 -r=text -r=html -r=lcov glob -c \"tsx --test\" \"./test/**/*.ts\"",
+    "test": "c8 -r=text -r=html -r=lcov glob -c \"tsx --test --test-concurrency=1\" \"./test/**/*.ts\"",
     "lint": "eslint --ignore-pattern=dist",
     "lint:fix": "pnpm run lint -- --fix",
     "format": "prettier . --list-different",
@@ -16,7 +16,7 @@
     "util:hash": "tsx ./scripts/hash-password.ts",
     "db:create": "tsx --env-file=.env ./scripts/create-database.ts",
     "db:seed": "tsx --env-file=.env ./scripts/seed-database.ts",
-    "db:types": "kysely-codegen --dialect sqlite --env-file .env"
+    "db:types": "kysely-codegen --dialect postgres --env-file .env"
   },
   "keywords": [
     "fastify",
@@ -42,21 +42,23 @@
     "@fastify/jwt": "^10.0.0",
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/sensible": "^6.0.4",
+    "@fastify/swagger": "^9.7.0",
+    "@fastify/swagger-ui": "^6.0.0",
     "@fastify/type-provider-typebox": "^6.1.0",
     "@fastify/under-pressure": "^9.0.3",
     "@sinclair/typebox": "^0.34.48",
-    "better-sqlite3": "^12.8.0",
     "close-with-grace": "^2.5.0",
     "fastify": "^5.8.4",
     "fastify-favicon": "^5.0.0",
     "fastify-ip": "^2.0.0",
     "fastify-plugin": "^5.1.0",
     "kysely": "^0.28.14",
-    "neverthrow": "^8.2.0"
+    "neverthrow": "^8.2.0",
+    "pg": "^8.21.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "22.13.14",
+    "@types/pg": "^8.20.0",
     "c8": "^11.0.0",
     "concurrently": "^9.2.1",
     "eslint": "^9.39.2",

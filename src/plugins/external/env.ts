@@ -11,6 +11,13 @@ declare module 'fastify' {
       JWT_SECRET: string
       JWT_EXPIRES_IN: string
       COOKIE_NAME: string
+      WECHAT_APPID?: string
+      WECHAT_SECRET?: string
+      ALIYUN_OSS_ACCESS_KEY_ID?: string
+      ALIYUN_OSS_ACCESS_KEY_SECRET?: string
+      ALIYUN_OSS_BUCKET?: string
+      ALIYUN_OSS_REGION?: string
+      ALIYUN_OSS_HOST?: string
     }
   }
 }
@@ -48,6 +55,27 @@ const schema = {
     COOKIE_NAME: {
       type: 'string',
       default: 'session_id'
+    },
+    WECHAT_APPID: {
+      type: 'string'
+    },
+    WECHAT_SECRET: {
+      type: 'string'
+    },
+    ALIYUN_OSS_ACCESS_KEY_ID: {
+      type: 'string'
+    },
+    ALIYUN_OSS_ACCESS_KEY_SECRET: {
+      type: 'string'
+    },
+    ALIYUN_OSS_BUCKET: {
+      type: 'string'
+    },
+    ALIYUN_OSS_REGION: {
+      type: 'string'
+    },
+    ALIYUN_OSS_HOST: {
+      type: 'string'
     }
   }
 }

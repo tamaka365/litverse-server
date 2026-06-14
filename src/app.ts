@@ -37,10 +37,30 @@ export default async function serviceApp(
       'Unhandled error occurred'
     )
 
-    reply.code(err.statusCode ?? 500)
+    const statusCode = err.statusCode ?? 500
+    reply.code(statusCode)
+
+    const rawMessage =
+      err.statusCode && err.statusCode < 500
+        ? err.message
+        : 'Internal Server Error'
+
+    if (request.url.startsWith('/api/v1')) {
+      let code = 50000
+      if (statusCode === 400) code = 40001
+      else if (statusCode === 401) code = 40100
+      else if (statusCode === 403) code = 40300
+      else if (statusCode === 404) code = 40400
+
+      return {
+        code,
+        message: rawMessage,
+        data: null
+      }
+    }
 
     return {
-      message: err.statusCode && err.statusCode < 500 ? err.message : 'Internal Server Error'
+      message: rawMessage
     }
   })
 
@@ -61,6 +81,15 @@ export default async function serviceApp(
         },
         'Resource not found'
       )
+
+      if (request.url.startsWith('/api/v1')) {
+        reply.code(404)
+        return {
+          code: 40400,
+          message: 'Not found',
+          data: null
+        }
+      }
 
       return reply.notFound()
     }

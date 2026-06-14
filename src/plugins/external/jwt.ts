@@ -3,8 +3,8 @@ import fp from 'fastify-plugin'
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {
-    payload: { id: number; email: string }
-    user: { id: number; email: string }
+    payload: { id: number; email: string; role: string }
+    user: { id: number; email: string; role: string }
   }
 }
 
