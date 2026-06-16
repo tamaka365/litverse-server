@@ -220,6 +220,43 @@ export function createUsersRepository(fastify: FastifyInstance) {
           })
           .execute()
       )
+    },
+
+    async createUserWithRole(userData: {
+      email: string
+      username: string
+      password: string
+      role: string
+    }) {
+      const nowSeconds = Math.floor(Date.now() / 1000)
+      return toResult(
+        db
+          .insertInto('users')
+          .values({
+            email: userData.email,
+            username: userData.username,
+            password: userData.password,
+            role: userData.role,
+            created_at: nowSeconds,
+            updated_at: nowSeconds
+          })
+          .execute()
+      )
+    },
+
+    async softDeleteUser(id: number) {
+      const nowSeconds = Math.floor(Date.now() / 1000)
+      return toResult(
+        db
+          .updateTable('users')
+          .set({
+            deleted_at: nowSeconds,
+            updated_at: nowSeconds,
+            version: sql<number>`version + 1`
+          })
+          .where('id', '=', id)
+          .execute()
+      )
     }
   }
 }

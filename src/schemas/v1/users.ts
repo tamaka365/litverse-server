@@ -57,3 +57,23 @@ export const AdminUsersListResponseDataSchema = Type.Object({
 export const AdminUsersListResponseSchema = wrapResponseSchema(
   AdminUsersListResponseDataSchema
 )
+
+// --- Admin Accounts Management ---
+export const CreateAdminAccountRequestSchema = Type.Object({
+  username: Type.String({ minLength: 2, maxLength: 50 }),
+  password: Type.String({ minLength: 6, maxLength: 50 }),
+  email: Type.String({ format: 'email' })
+})
+
+export type CreateAdminAccountRequest = Static<
+  typeof CreateAdminAccountRequestSchema
+>
+
+export const UpdateAdminPasswordRequestSchema = Type.Object({
+  currentPassword: Type.String({ minLength: 1 }),
+  newPassword: Type.String({ minLength: 6, maxLength: 50 })
+})
+
+export type UpdateAdminPasswordRequest = Static<
+  typeof UpdateAdminPasswordRequestSchema
+>

@@ -47,6 +47,12 @@ async function seedUsers(db: Kysely<DB>) {
       email: 'admin@example.com',
       role: 'admin',
       password: 'Password123$'
+    },
+    {
+      username: 'admin888',
+      email: 'admin888@example.com',
+      role: 'admin',
+      password: 'admin888'
     }
   ]
 

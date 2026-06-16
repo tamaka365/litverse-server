@@ -25,11 +25,20 @@ import {
   SaveQuestionsRequest,
   SaveQuestionsRequestSchema
 } from '../../../../schemas/v1/questions.js'
+import {
+  OssSettingsRequest,
+  OssSettingsRequestSchema,
+  OssSettingsResponseSchema
+} from '../../../../schemas/v1/settings.js'
 import { DashboardStatsResponseSchema } from '../../../../schemas/v1/stats.js'
 import {
   AdminUsersListRequestQuery,
   AdminUsersListRequestQuerySchema,
-  AdminUsersListResponseSchema
+  AdminUsersListResponseSchema,
+  CreateAdminAccountRequest,
+  CreateAdminAccountRequestSchema,
+  UpdateAdminPasswordRequest,
+  UpdateAdminPasswordRequestSchema
 } from '../../../../schemas/v1/users.js'
 import { getOssUploadSignature } from '../../../../utils/oss.js'
 import { successResponse } from '../../../../utils/response.js'
@@ -42,6 +51,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     questionsRepository,
     postersRepository,
     statsRepository,
+    settingsRepository,
     log,
     config
   } = fastify
@@ -163,7 +173,28 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     },
     async (request, reply) => {
       const { filename, mimeType } = request.query
-      const signature = getOssUploadSignature(filename, mimeType, config)
+
+      // Retrieve dynamic OSS configurations from database
+      const dbOssResult = await settingsRepository.getOssSettings()
+      let activeConfig = {
+        ALIYUN_OSS_ACCESS_KEY_ID: config.ALIYUN_OSS_ACCESS_KEY_ID,
+        ALIYUN_OSS_ACCESS_KEY_SECRET: config.ALIYUN_OSS_ACCESS_KEY_SECRET,
+        ALIYUN_OSS_BUCKET: config.ALIYUN_OSS_BUCKET,
+        ALIYUN_OSS_REGION: config.ALIYUN_OSS_REGION,
+        ALIYUN_OSS_HOST: config.ALIYUN_OSS_HOST
+      }
+
+      if (dbOssResult.isOk() && dbOssResult.value.accessKeyId) {
+        activeConfig = {
+          ALIYUN_OSS_ACCESS_KEY_ID: dbOssResult.value.accessKeyId,
+          ALIYUN_OSS_ACCESS_KEY_SECRET: dbOssResult.value.accessKeySecret,
+          ALIYUN_OSS_BUCKET: dbOssResult.value.bucket,
+          ALIYUN_OSS_REGION: dbOssResult.value.region,
+          ALIYUN_OSS_HOST: dbOssResult.value.host
+        }
+      }
+
+      const signature = getOssUploadSignature(filename, mimeType, activeConfig)
       return successResponse(signature)
     }
   )
@@ -484,6 +515,250 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       }
 
       return successResponse(null, 'poster status updated')
+    }
+  )
+
+  // --- 7.7.1 Update Admin Password ---
+  fastify.put<{ Body: UpdateAdminPasswordRequest }>(
+    '/auth/password',
+    {
+      schema: {
+        tags: ['V1 Admin'],
+        body: UpdateAdminPasswordRequestSchema
+      }
+    },
+    async (request, reply) => {
+      const { id: userId, email } = request.user as {
+        id: number
+        email: string
+      }
+      const { currentPassword, newPassword } = request.body
+
+      const userResult = await usersRepository.findById(userId)
+      if (userResult.isErr() || !userResult.value) {
+        return reply.notFound('Admin user not found')
+      }
+
+      // Fetch the full user record using findByEmail to access the hashed password field
+      const fullUserResult = await usersRepository.findByEmail(email)
+      if (fullUserResult.isErr() || !fullUserResult.value) {
+        return reply.notFound('Admin user details not found')
+      }
+
+      const isPasswordValid = await passwordManager.compare(
+        currentPassword,
+        fullUserResult.value.password
+      )
+      if (!isPasswordValid) {
+        return reply.unauthorized('Invalid current password')
+      }
+
+      const hashedNewPassword = await passwordManager.hash(newPassword)
+      const updateResult = await usersRepository.updatePassword(
+        email,
+        hashedNewPassword
+      )
+      if (updateResult.isErr()) {
+        log.error(
+          `Failed to update admin password: ${updateResult.error.message}`
+        )
+        return reply.internalServerError('Failed to update password')
+      }
+
+      return successResponse(null, 'password updated successfully')
+    }
+  )
+
+  // --- 7.7.2 Create New Admin Account ---
+  fastify.post<{ Body: CreateAdminAccountRequest }>(
+    '/accounts',
+    {
+      schema: {
+        tags: ['V1 Admin'],
+        body: CreateAdminAccountRequestSchema
+      }
+    },
+    async (request, reply) => {
+      const { username, password, email } = request.body
+
+      // Uniqueness check for username
+      const existingUserByUsername =
+        await usersRepository.findByUsername(username)
+      if (existingUserByUsername.isErr()) {
+        return reply.internalServerError('Database check failed')
+      }
+      if (existingUserByUsername.value) {
+        return reply.conflict('Username already exists')
+      }
+
+      // Uniqueness check for email
+      const existingUserByEmail = await usersRepository.findByEmail(email)
+      if (existingUserByEmail.isErr()) {
+        return reply.internalServerError('Database check failed')
+      }
+      if (existingUserByEmail.value) {
+        return reply.conflict('Email already exists')
+      }
+
+      const hashedPassword = await passwordManager.hash(password)
+      const createResult = await usersRepository.createUserWithRole({
+        email,
+        username,
+        password: hashedPassword,
+        role: 'admin'
+      })
+
+      if (createResult.isErr()) {
+        console.error('CREATE_ADMIN_ERROR:', createResult.error)
+        log.error(
+          `Failed to create admin account: ${createResult.error.message}`
+        )
+        return reply.internalServerError('Failed to create admin account')
+      }
+
+      // Query the database to retrieve the newly created admin ID
+      const newAdminResult = await usersRepository.findByEmail(email)
+      if (newAdminResult.isErr() || !newAdminResult.value) {
+        log.error('Failed to retrieve newly created admin user record')
+        return reply.internalServerError('Failed to retrieve new admin')
+      }
+
+      const newAdmin = newAdminResult.value
+
+      return successResponse(
+        { id: newAdmin.id, username: newAdmin.username, email: newAdmin.email },
+        'admin account created successfully'
+      )
+    }
+  )
+
+  // --- 7.7.3 Delete Admin Account ---
+  fastify.delete<{ Params: { id: number } }>(
+    '/accounts/:id',
+    {
+      schema: {
+        tags: ['V1 Admin'],
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'integer', minimum: 1 }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const { id: targetId } = request.params
+      const { id: currentAdminId } = request.user as { id: number }
+
+      // Prevent self-deletion
+      if (Number(targetId) === Number(currentAdminId)) {
+        return reply.badRequest('Cannot delete your own administrator account')
+      }
+
+      // Find the user to verify role is admin
+      const userResult = await usersRepository.findById(targetId)
+      if (userResult.isErr() || !userResult.value) {
+        return reply.notFound('Admin account not found')
+      }
+
+      if (userResult.value.role !== 'admin') {
+        return reply.badRequest('Target user is not an administrator')
+      }
+
+      const deleteResult = await usersRepository.softDeleteUser(targetId)
+      if (deleteResult.isErr()) {
+        log.error(
+          `Failed to delete admin account: ${deleteResult.error.message}`
+        )
+        return reply.internalServerError('Failed to delete admin account')
+      }
+
+      return successResponse(null, 'admin account deleted successfully')
+    }
+  )
+
+  // --- 7.8.1 Get Aliyun OSS Settings ---
+  fastify.get(
+    '/settings/oss',
+    {
+      schema: {
+        tags: ['V1 Admin'],
+        response: {
+          200: OssSettingsResponseSchema
+        }
+      }
+    },
+    async (request, reply) => {
+      const dbOssResult = await settingsRepository.getOssSettings()
+      if (dbOssResult.isErr()) {
+        log.error(
+          `Failed to retrieve OSS settings: ${dbOssResult.error.message}`
+        )
+        return reply.internalServerError('Database error')
+      }
+
+      // If database is empty, fall back to environment variables configuration or mock defaults
+      const accessKeyId =
+        dbOssResult.value.accessKeyId ||
+        config.ALIYUN_OSS_ACCESS_KEY_ID ||
+        'mock_access_key_id'
+      const accessKeySecret =
+        dbOssResult.value.accessKeySecret ||
+        config.ALIYUN_OSS_ACCESS_KEY_SECRET ||
+        'mock_access_key_secret'
+      const bucket =
+        dbOssResult.value.bucket ||
+        config.ALIYUN_OSS_BUCKET ||
+        'litverse-bucket'
+      const region =
+        dbOssResult.value.region ||
+        config.ALIYUN_OSS_REGION ||
+        'oss-cn-hangzhou'
+      const host =
+        dbOssResult.value.host ||
+        config.ALIYUN_OSS_HOST ||
+        `https://${bucket}.${region}.aliyuncs.com`
+
+      return successResponse({
+        accessKeyId,
+        accessKeySecret,
+        bucket,
+        region,
+        host
+      })
+    }
+  )
+
+  // --- 7.8.2 Set Aliyun OSS Settings ---
+  fastify.put<{ Body: OssSettingsRequest }>(
+    '/settings/oss',
+    {
+      schema: {
+        tags: ['V1 Admin'],
+        body: OssSettingsRequestSchema
+      }
+    },
+    async (request, reply) => {
+      const { accessKeyId, accessKeySecret, bucket, region, host } =
+        request.body
+
+      const updateResult = await settingsRepository.setOssSettings({
+        accessKeyId,
+        accessKeySecret,
+        bucket,
+        region,
+        host
+      })
+
+      if (updateResult.isErr()) {
+        log.error(
+          `Failed to update OSS settings in database: ${updateResult.error.message}`
+        )
+        return reply.internalServerError('Failed to save OSS settings')
+      }
+
+      return successResponse(null, 'OSS settings updated successfully')
     }
   )
 }

@@ -242,8 +242,8 @@ describe('V1 Litverse API Integration Tests', () => {
         method: 'POST',
         url: '/api/v1/admin/auth/login',
         payload: {
-          username: 'admin',
-          password: 'Password123$'
+          username: 'admin888',
+          password: 'admin888'
         }
       })
       assert.strictEqual(adminLogin.statusCode, 200)
@@ -386,6 +386,164 @@ describe('V1 Litverse API Integration Tests', () => {
         url: `/api/v1/ugc/posters/${guestPosterId}`
       })
       assert.strictEqual(posterDetail.statusCode, 404)
+
+      // 10. Admin Accounts Management CRUD
+      // 10.1 Create new admin account
+      const rand = Date.now()
+      const subAdminUser = `admin888_sub_${rand}`
+      const subAdminEmail = `admin888_sub_${rand}@example.com`
+
+      const createAdminRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/admin/accounts',
+        headers: { Authorization: `Bearer ${adminToken}` },
+        payload: {
+          username: subAdminUser,
+          password: 'Password123$',
+          email: subAdminEmail
+        }
+      })
+      assert.strictEqual(createAdminRes.statusCode, 200)
+      const newAdminData = JSON.parse(createAdminRes.payload).data
+      assert.ok(newAdminData.id)
+
+      // Test validation logic: username conflict
+      const createConflictRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/admin/accounts',
+        headers: { Authorization: `Bearer ${adminToken}` },
+        payload: {
+          username: subAdminUser,
+          password: 'Password123$',
+          email: `admin888_sub2_${rand}@example.com`
+        }
+      })
+      assert.strictEqual(createConflictRes.statusCode, 409)
+
+      // 10.2 Verify new admin can log in
+      const newAdminLogin = await app.inject({
+        method: 'POST',
+        url: '/api/v1/admin/auth/login',
+        payload: {
+          username: subAdminUser,
+          password: 'Password123$'
+        }
+      })
+      assert.strictEqual(newAdminLogin.statusCode, 200)
+      const newAdminToken = JSON.parse(newAdminLogin.payload).data.token
+
+      // 10.3 Modify password for the new admin
+      const modifyPasswordRes = await app.inject({
+        method: 'PUT',
+        url: '/api/v1/admin/auth/password',
+        headers: { Authorization: `Bearer ${newAdminToken}` },
+        payload: {
+          currentPassword: 'Password123$',
+          newPassword: 'NewPassword123$'
+        }
+      })
+      assert.strictEqual(modifyPasswordRes.statusCode, 200)
+
+      // Verify log in with old password fails
+      const loginFailOld = await app.inject({
+        method: 'POST',
+        url: '/api/v1/admin/auth/login',
+        payload: {
+          username: subAdminUser,
+          password: 'Password123$'
+        }
+      })
+      assert.strictEqual(loginFailOld.statusCode, 401)
+
+      // Verify log in with new password succeeds
+      const loginSucceedNew = await app.inject({
+        method: 'POST',
+        url: '/api/v1/admin/auth/login',
+        payload: {
+          username: subAdminUser,
+          password: 'NewPassword123$'
+        }
+      })
+      assert.strictEqual(loginSucceedNew.statusCode, 200)
+
+      // 10.4 Prevent self-deletion
+      const deleteSelfRes = await app.inject({
+        method: 'DELETE',
+        url: `/api/v1/admin/accounts/${newAdminData.id}`,
+        headers: { Authorization: `Bearer ${newAdminToken}` }
+      })
+      assert.strictEqual(deleteSelfRes.statusCode, 400)
+
+      // 10.5 Delete admin account using the main admin token
+      const deleteAdminRes = await app.inject({
+        method: 'DELETE',
+        url: `/api/v1/admin/accounts/${newAdminData.id}`,
+        headers: { Authorization: `Bearer ${adminToken}` }
+      })
+      assert.strictEqual(deleteAdminRes.statusCode, 200)
+
+      // Verify deleted admin cannot log in anymore
+      const loginFailDeleted = await app.inject({
+        method: 'POST',
+        url: '/api/v1/admin/auth/login',
+        payload: {
+          username: subAdminUser,
+          password: 'NewPassword123$'
+        }
+      })
+      assert.strictEqual(loginFailDeleted.statusCode, 401)
+
+      // 11. Aliyun OSS Dynamic Configuration Settings
+      // 11.1 Get default settings (should fall back to mock environment configuration values)
+      const getOssRes = await app.inject({
+        method: 'GET',
+        url: '/api/v1/admin/settings/oss',
+        headers: { Authorization: `Bearer ${adminToken}` }
+      })
+      assert.strictEqual(getOssRes.statusCode, 200)
+      const defaultOss = JSON.parse(getOssRes.payload).data
+      assert.ok(defaultOss.bucket)
+
+      // 11.2 Update settings in database
+      const updateOssRes = await app.inject({
+        method: 'PUT',
+        url: '/api/v1/admin/settings/oss',
+        headers: { Authorization: `Bearer ${adminToken}` },
+        payload: {
+          accessKeyId: 'dyn_id_abc',
+          accessKeySecret: 'dyn_secret_xyz',
+          bucket: 'dynamic-test-bucket',
+          region: 'oss-cn-beijing',
+          host: 'https://dynamic-test-bucket.oss-cn-beijing.aliyuncs.com'
+        }
+      })
+      assert.strictEqual(updateOssRes.statusCode, 200)
+
+      // 11.3 Retrieve updated settings and verify
+      const getUpdatedOssRes = await app.inject({
+        method: 'GET',
+        url: '/api/v1/admin/settings/oss',
+        headers: { Authorization: `Bearer ${adminToken}` }
+      })
+      assert.strictEqual(getUpdatedOssRes.statusCode, 200)
+      const updatedOss = JSON.parse(getUpdatedOssRes.payload).data
+      assert.strictEqual(updatedOss.accessKeyId, 'dyn_id_abc')
+      assert.strictEqual(updatedOss.bucket, 'dynamic-test-bucket')
+
+      // 11.4 Get OSS signature and verify it uses the newly configured dynamic values
+      const sigRes = await app.inject({
+        method: 'GET',
+        url: '/api/v1/admin/media/upload-signature?filename=doc.pdf&mimeType=application/pdf',
+        headers: { Authorization: `Bearer ${adminToken}` }
+      })
+      assert.strictEqual(sigRes.statusCode, 200)
+      const sigData = JSON.parse(sigRes.payload).data
+      assert.strictEqual(
+        sigData.host,
+        'https://dynamic-test-bucket.oss-cn-beijing.aliyuncs.com'
+      )
+      assert.strictEqual(sigData.formData.OSSAccessKeyId, 'dyn_id_abc')
     })
   })
 })
+
