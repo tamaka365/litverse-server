@@ -38,7 +38,10 @@ import {
   CreateAdminAccountRequest,
   CreateAdminAccountRequestSchema,
   UpdateAdminPasswordRequest,
-  UpdateAdminPasswordRequestSchema
+  UpdateAdminPasswordRequestSchema,
+  AdminAccountsListResponseSchema,
+  UpdateAdminAccountRequest,
+  UpdateAdminAccountRequestSchema
 } from '../../../../schemas/v1/users.js'
 import { getOssUploadSignature } from '../../../../utils/oss.js'
 import { successResponse } from '../../../../utils/response.js'
@@ -74,6 +77,21 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       return reply.unauthorized('Authentication required')
     }
   })
+
+  // --- Helper to require default administrator username "admin888" ---
+  const requireDefaultAdmin = async (request: any, reply: any) => {
+    const { id } = request.user as { id: number }
+    const userResult = await usersRepository.findById(id)
+    if (
+      userResult.isErr() ||
+      !userResult.value ||
+      userResult.value.username !== 'admin888'
+    ) {
+      return reply.forbidden(
+        'Forbidden - Only default administrator has access'
+      )
+    }
+  }
 
   // --- 7.1 Admin Login ---
   fastify.post<{ Body: AdminLoginRequest }>(
@@ -576,7 +594,8 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       schema: {
         tags: ['V1 Admin'],
         body: CreateAdminAccountRequestSchema
-      }
+      },
+      preHandler: [requireDefaultAdmin]
     },
     async (request, reply) => {
       const { username, password, email } = request.body
@@ -645,7 +664,8 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
             id: { type: 'integer', minimum: 1 }
           }
         }
-      }
+      },
+      preHandler: [requireDefaultAdmin]
     },
     async (request, reply) => {
       const { id: targetId } = request.params
@@ -675,6 +695,98 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       }
 
       return successResponse(null, 'admin account deleted successfully')
+    }
+  )
+
+  // --- 7.7.4 Get Admin Accounts List (Only Default Admin) ---
+  fastify.get(
+    '/accounts',
+    {
+      schema: {
+        tags: ['V1 Admin'],
+        response: {
+          200: AdminAccountsListResponseSchema
+        }
+      },
+      preHandler: [requireDefaultAdmin]
+    },
+    async (request, reply) => {
+      const adminsResult = await usersRepository.findAllAdmins()
+      if (adminsResult.isErr()) {
+        log.error(`Failed to list admin accounts: ${adminsResult.error.message}`)
+        return reply.internalServerError('Database error')
+      }
+
+      const list = adminsResult.value.map((admin) => ({
+        id: admin.id,
+        username: admin.username,
+        email: admin.email,
+        role: admin.role,
+        createdAt: new Date(admin.created_at * 1000).toISOString()
+      }))
+
+      return successResponse({ list })
+    }
+  )
+
+  // --- 7.7.5 Update Admin Account Details (Only Default Admin) ---
+  fastify.put<{ Params: { id: number }; Body: UpdateAdminAccountRequest }>(
+    '/accounts/:id',
+    {
+      schema: {
+        tags: ['V1 Admin'],
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'integer', minimum: 1 }
+          }
+        },
+        body: UpdateAdminAccountRequestSchema
+      },
+      preHandler: [requireDefaultAdmin]
+    },
+    async (request, reply) => {
+      const { id } = request.params
+      const { username, email, password } = request.body
+
+      const userResult = await usersRepository.findById(id)
+      if (userResult.isErr() || !userResult.value) {
+        return reply.notFound('Admin account not found')
+      }
+
+      if (userResult.value.role !== 'admin') {
+        return reply.badRequest('Target user is not an administrator')
+      }
+
+      // If username is changing, check uniqueness
+      if (username && username !== userResult.value.username) {
+        const checkUsername = await usersRepository.findByUsername(username)
+        if (checkUsername.isErr()) return reply.internalServerError('Database error')
+        if (checkUsername.value) return reply.conflict('Username already exists')
+      }
+
+      // If email is changing, check uniqueness
+      if (email && email !== userResult.value.email) {
+        const checkEmail = await usersRepository.findByEmail(email)
+        if (checkEmail.isErr()) return reply.internalServerError('Database error')
+        if (checkEmail.value) return reply.conflict('Email already exists')
+      }
+
+      const updateData: { username?: string; email?: string; password?: string } = {}
+      if (username) updateData.username = username
+      if (email) updateData.email = email
+      if (password) {
+        updateData.password = await passwordManager.hash(password)
+      }
+
+      const updateResult = await usersRepository.updateAdmin(id, updateData)
+      if (updateResult.isErr()) {
+        log.error(`Failed to update admin account: ${updateResult.error.message}`)
+        return reply.internalServerError('Failed to update admin')
+      }
+
+      return successResponse(null, 'admin account updated successfully')
     }
   )
 

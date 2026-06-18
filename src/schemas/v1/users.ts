@@ -77,3 +77,36 @@ export const UpdateAdminPasswordRequestSchema = Type.Object({
 export type UpdateAdminPasswordRequest = Static<
   typeof UpdateAdminPasswordRequestSchema
 >
+
+// --- Admin Accounts Management (Custom) ---
+export const AdminAccountItemSchema = Type.Object({
+  id: Type.Integer(),
+  username: Type.String(),
+  email: Type.String({ format: 'email' }),
+  role: Type.String(),
+  createdAt: Type.String({ format: 'date-time' })
+})
+
+export type AdminAccountItem = Static<typeof AdminAccountItemSchema>
+
+export const AdminAccountsListResponseDataSchema = Type.Object({
+  list: Type.Array(AdminAccountItemSchema)
+})
+
+export const AdminAccountsListResponseSchema = wrapResponseSchema(
+  AdminAccountsListResponseDataSchema
+)
+
+export type AdminAccountsListResponse = Static<
+  typeof AdminAccountsListResponseSchema
+>
+
+export const UpdateAdminAccountRequestSchema = Type.Object({
+  username: Type.Optional(Type.String({ minLength: 2, maxLength: 50 })),
+  email: Type.Optional(Type.String({ format: 'email' })),
+  password: Type.Optional(Type.String({ minLength: 6, maxLength: 50 }))
+})
+
+export type UpdateAdminAccountRequest = Static<
+  typeof UpdateAdminAccountRequestSchema
+>

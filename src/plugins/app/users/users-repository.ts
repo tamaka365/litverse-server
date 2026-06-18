@@ -257,6 +257,41 @@ export function createUsersRepository(fastify: FastifyInstance) {
           .where('id', '=', id)
           .execute()
       )
+    },
+
+    async findAllAdmins() {
+      return toResult(
+        db
+          .selectFrom('users')
+          .select([
+            'id',
+            'username',
+            'email',
+            'role',
+            'created_at'
+          ])
+          .where('role', '=', 'admin')
+          .where('deleted_at', 'is', null)
+          .execute()
+      )
+    },
+
+    async updateAdmin(
+      id: number,
+      data: { username?: string; email?: string; password?: string }
+    ) {
+      const nowSeconds = Math.floor(Date.now() / 1000)
+      return toResult(
+        db
+          .updateTable('users')
+          .set({
+            ...data,
+            updated_at: nowSeconds,
+            version: sql<number>`version + 1`
+          })
+          .where('id', '=', id)
+          .execute()
+      )
     }
   }
 }

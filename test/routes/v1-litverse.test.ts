@@ -467,10 +467,19 @@ describe('V1 Litverse API Integration Tests', () => {
       assert.strictEqual(loginSucceedNew.statusCode, 200)
 
       // 10.4 Prevent self-deletion
+      const getAdminsList = await app.inject({
+        method: 'GET',
+        url: '/api/v1/admin/accounts',
+        headers: { Authorization: `Bearer ${adminToken}` }
+      })
+      const adminList = JSON.parse(getAdminsList.payload).data.list
+      const admin888Account = adminList.find((a: any) => a.username === 'admin888')
+      assert.ok(admin888Account)
+
       const deleteSelfRes = await app.inject({
         method: 'DELETE',
-        url: `/api/v1/admin/accounts/${newAdminData.id}`,
-        headers: { Authorization: `Bearer ${newAdminToken}` }
+        url: `/api/v1/admin/accounts/${admin888Account.id}`,
+        headers: { Authorization: `Bearer ${adminToken}` }
       })
       assert.strictEqual(deleteSelfRes.statusCode, 400)
 
@@ -492,6 +501,119 @@ describe('V1 Litverse API Integration Tests', () => {
         }
       })
       assert.strictEqual(loginFailDeleted.statusCode, 401)
+
+      // 10.6 Enforce requireDefaultAdmin checks for other administrators
+      const activeSubAdminUser = `admin888_active_sub_${rand}`
+      const activeSubAdminEmail = `admin888_active_sub_${rand}@example.com`
+      const createActiveSubRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/admin/accounts',
+        headers: { Authorization: `Bearer ${adminToken}` },
+        payload: {
+          username: activeSubAdminUser,
+          password: 'Password123$',
+          email: activeSubAdminEmail
+        }
+      })
+      assert.strictEqual(createActiveSubRes.statusCode, 200)
+      const activeSubData = JSON.parse(createActiveSubRes.payload).data
+
+      const activeSubLogin = await app.inject({
+        method: 'POST',
+        url: '/api/v1/admin/auth/login',
+        payload: {
+          username: activeSubAdminUser,
+          password: 'Password123$'
+        }
+      })
+      const activeSubToken = JSON.parse(activeSubLogin.payload).data.token
+
+      // Attempt to access list admins with non-default admin token -> should fail with 403
+      const listAdminsForbidden = await app.inject({
+        method: 'GET',
+        url: '/api/v1/admin/accounts',
+        headers: { Authorization: `Bearer ${activeSubToken}` }
+      })
+      assert.strictEqual(listAdminsForbidden.statusCode, 403)
+
+      // Attempt to create a new admin with non-default admin token -> should fail with 403
+      const createAdminForbidden = await app.inject({
+        method: 'POST',
+        url: '/api/v1/admin/accounts',
+        headers: { Authorization: `Bearer ${activeSubToken}` },
+        payload: {
+          username: `rand_usr_${rand}`,
+          password: 'Password123$',
+          email: `rand_usr_${rand}@example.com`
+        }
+      })
+      assert.strictEqual(createAdminForbidden.statusCode, 403)
+
+      // Attempt to delete an admin with non-default admin token -> should fail with 403
+      const deleteAdminForbidden = await app.inject({
+        method: 'DELETE',
+        url: `/api/v1/admin/accounts/${activeSubData.id}`,
+        headers: { Authorization: `Bearer ${activeSubToken}` }
+      })
+      assert.strictEqual(deleteAdminForbidden.statusCode, 403)
+
+      // Attempt to update an admin with non-default admin token -> should fail with 403
+      const updateAdminForbidden = await app.inject({
+        method: 'PUT',
+        url: `/api/v1/admin/accounts/${activeSubData.id}`,
+        headers: { Authorization: `Bearer ${activeSubToken}` },
+        payload: {
+          username: `new_name_${rand}`
+        }
+      })
+      assert.strictEqual(updateAdminForbidden.statusCode, 403)
+
+      // Default admin updates activeSub details (username and email)
+      const updatedSubUsername = `admin888_active_sub_upd_${rand}`
+      const updatedSubEmail = `admin888_active_sub_upd_${rand}@example.com`
+      const updateSubRes = await app.inject({
+        method: 'PUT',
+        url: `/api/v1/admin/accounts/${activeSubData.id}`,
+        headers: { Authorization: `Bearer ${adminToken}` },
+        payload: {
+          username: updatedSubUsername,
+          email: updatedSubEmail,
+          password: 'NewPassword321$'
+        }
+      })
+      assert.strictEqual(updateSubRes.statusCode, 200)
+
+      // Confirm updating worked by logging in with new credentials
+      const updatedSubLogin = await app.inject({
+        method: 'POST',
+        url: '/api/v1/admin/auth/login',
+        payload: {
+          username: updatedSubUsername,
+          password: 'NewPassword321$'
+        }
+      })
+      assert.strictEqual(updatedSubLogin.statusCode, 200)
+
+      // List all administrators using default admin token and verify details are updated
+      const listAdminsSucceed = await app.inject({
+        method: 'GET',
+        url: '/api/v1/admin/accounts',
+        headers: { Authorization: `Bearer ${adminToken}` }
+      })
+      assert.strictEqual(listAdminsSucceed.statusCode, 200)
+      const finalAdminsList = JSON.parse(listAdminsSucceed.payload).data.list
+      const foundUpdatedSub = finalAdminsList.find((a: any) => a.id === activeSubData.id)
+      assert.ok(foundUpdatedSub)
+      assert.strictEqual(foundUpdatedSub.username, updatedSubUsername)
+      assert.strictEqual(foundUpdatedSub.email, updatedSubEmail)
+
+      // Clean up the active sub admin
+      const deleteActiveSubRes = await app.inject({
+        method: 'DELETE',
+        url: `/api/v1/admin/accounts/${activeSubData.id}`,
+        headers: { Authorization: `Bearer ${adminToken}` }
+      })
+      assert.strictEqual(deleteActiveSubRes.statusCode, 200)
 
       // 11. Aliyun OSS Dynamic Configuration Settings
       // 11.1 Get default settings (should fall back to mock environment configuration values)
