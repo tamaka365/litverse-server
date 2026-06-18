@@ -721,7 +721,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         id: admin.id,
         username: admin.username,
         email: admin.email,
-        role: admin.role,
+        role: admin.role ?? 'admin',
         createdAt: new Date(admin.created_at * 1000).toISOString()
       }))
 
