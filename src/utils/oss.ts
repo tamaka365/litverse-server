@@ -32,8 +32,16 @@ export function getOssUploadSignature(
     config.ALIYUN_OSS_ACCESS_KEY_SECRET || 'mock_access_key_secret'
   const bucket = config.ALIYUN_OSS_BUCKET || 'litverse-bucket'
   const region = config.ALIYUN_OSS_REGION || 'oss-cn-hangzhou'
-  const host =
+  let host =
     config.ALIYUN_OSS_HOST || `https://${bucket}.${region}.aliyuncs.com`
+
+  if (host) {
+    if (host.startsWith('//')) {
+      host = `https:${host}`
+    } else if (!/^https?:\/\//i.test(host)) {
+      host = `https://${host}`
+    }
+  }
 
   const dir = 'media/'
   const fileExt = filename.includes('.')

@@ -32,16 +32,16 @@ import {
 } from '../../../../schemas/v1/settings.js'
 import { DashboardStatsResponseSchema } from '../../../../schemas/v1/stats.js'
 import {
+  AdminAccountsListResponseSchema,
   AdminUsersListRequestQuery,
   AdminUsersListRequestQuerySchema,
   AdminUsersListResponseSchema,
   CreateAdminAccountRequest,
   CreateAdminAccountRequestSchema,
-  UpdateAdminPasswordRequest,
-  UpdateAdminPasswordRequestSchema,
-  AdminAccountsListResponseSchema,
   UpdateAdminAccountRequest,
-  UpdateAdminAccountRequestSchema
+  UpdateAdminAccountRequestSchema,
+  UpdateAdminPasswordRequest,
+  UpdateAdminPasswordRequestSchema
 } from '../../../../schemas/v1/users.js'
 import { getOssUploadSignature } from '../../../../utils/oss.js'
 import { successResponse } from '../../../../utils/response.js'
@@ -605,7 +605,10 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       if (rootUserResult.isErr() || !rootUserResult.value) {
         return reply.internalServerError('Failed to fetch default admin')
       }
-      const isRootPassValid = await passwordManager.compare(rootPassword, rootUserResult.value.password)
+      const isRootPassValid = await passwordManager.compare(
+        rootPassword,
+        rootUserResult.value.password
+      )
       if (!isRootPassValid) {
         return reply.badRequest('根管理员密码验证失败')
       }
@@ -723,7 +726,9 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     async (request, reply) => {
       const adminsResult = await usersRepository.findAllAdmins()
       if (adminsResult.isErr()) {
-        log.error(`Failed to list admin accounts: ${adminsResult.error.message}`)
+        log.error(
+          `Failed to list admin accounts: ${adminsResult.error.message}`
+        )
         return reply.internalServerError('Database error')
       }
 
@@ -765,7 +770,10 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       if (rootUserResult.isErr() || !rootUserResult.value) {
         return reply.internalServerError('Failed to fetch default admin')
       }
-      const isRootPassValid = await passwordManager.compare(rootPassword, rootUserResult.value.password)
+      const isRootPassValid = await passwordManager.compare(
+        rootPassword,
+        rootUserResult.value.password
+      )
       if (!isRootPassValid) {
         return reply.badRequest('根管理员密码验证失败')
       }
@@ -782,18 +790,25 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       // If username is changing, check uniqueness
       if (username && username !== userResult.value.username) {
         const checkUsername = await usersRepository.findByUsername(username)
-        if (checkUsername.isErr()) return reply.internalServerError('Database error')
-        if (checkUsername.value) return reply.conflict('Username already exists')
+        if (checkUsername.isErr())
+          return reply.internalServerError('Database error')
+        if (checkUsername.value)
+          return reply.conflict('Username already exists')
       }
 
       // If email is changing, check uniqueness
       if (email && email !== userResult.value.email) {
         const checkEmail = await usersRepository.findByEmail(email)
-        if (checkEmail.isErr()) return reply.internalServerError('Database error')
+        if (checkEmail.isErr())
+          return reply.internalServerError('Database error')
         if (checkEmail.value) return reply.conflict('Email already exists')
       }
 
-      const updateData: { username?: string; email?: string; password?: string } = {}
+      const updateData: {
+        username?: string
+        email?: string
+        password?: string
+      } = {}
       if (username) updateData.username = username
       if (email) updateData.email = email
       if (password) {
@@ -802,7 +817,9 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
 
       const updateResult = await usersRepository.updateAdmin(id, updateData)
       if (updateResult.isErr()) {
-        log.error(`Failed to update admin account: ${updateResult.error.message}`)
+        log.error(
+          `Failed to update admin account: ${updateResult.error.message}`
+        )
         return reply.internalServerError('Failed to update admin')
       }
 

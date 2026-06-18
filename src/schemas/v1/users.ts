@@ -64,10 +64,10 @@ const passwordPattern =
 
 export const CreateAdminAccountRequestSchema = Type.Object({
   username: Type.String({ minLength: 2, maxLength: 50 }),
-  password: Type.String({ 
+  password: Type.String({
     pattern: passwordPattern,
     minLength: 8,
-    maxLength: 50 
+    maxLength: 50
   }),
   email: Type.String({ format: 'email' }),
   rootPassword: Type.String({ minLength: 1 })
@@ -80,11 +80,13 @@ export type CreateAdminAccountRequest = Static<
 export const UpdateAdminAccountRequestSchema = Type.Object({
   username: Type.Optional(Type.String({ minLength: 2, maxLength: 50 })),
   email: Type.Optional(Type.String({ format: 'email' })),
-  password: Type.Optional(Type.String({ 
-    pattern: passwordPattern,
-    minLength: 8,
-    maxLength: 50 
-  })),
+  password: Type.Optional(
+    Type.String({
+      pattern: passwordPattern,
+      minLength: 8,
+      maxLength: 50
+    })
+  ),
   rootPassword: Type.String({ minLength: 1 })
 })
 
@@ -94,10 +96,10 @@ export type UpdateAdminAccountRequest = Static<
 
 export const UpdateAdminPasswordRequestSchema = Type.Object({
   currentPassword: Type.String({ minLength: 1 }),
-  newPassword: Type.String({ 
+  newPassword: Type.String({
     pattern: passwordPattern,
     minLength: 8,
-    maxLength: 50 
+    maxLength: 50
   })
 })
 
@@ -127,4 +129,3 @@ export const AdminAccountsListResponseSchema = wrapResponseSchema(
 export type AdminAccountsListResponse = Static<
   typeof AdminAccountsListResponseSchema
 >
-

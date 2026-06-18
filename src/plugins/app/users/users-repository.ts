@@ -263,13 +263,7 @@ export function createUsersRepository(fastify: FastifyInstance) {
       return toResult(
         db
           .selectFrom('users')
-          .select([
-            'id',
-            'username',
-            'email',
-            'role',
-            'created_at'
-          ])
+          .select(['id', 'username', 'email', 'role', 'created_at'])
           .where('role', '=', 'admin')
           .where('deleted_at', 'is', null)
           .execute()
