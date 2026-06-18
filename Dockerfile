@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 RUN npm install -g pnpm@9
 COPY package.json pnpm-lock.yaml tsconfig.json ./
@@ -10,7 +10,7 @@ RUN touch .env
 RUN cp src/types/db.d.ts node_modules/kysely-codegen/dist/db.d.ts
 RUN pnpm run build
 
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
@@ -18,4 +18,5 @@ RUN npm install -g pnpm@9
 COPY --from=builder /app ./
 EXPOSE 3000
 CMD ["node", "dist/server.js"]
+
 

@@ -4,7 +4,6 @@ declare module 'fastify' {
   export interface FastifyInstance {
     config: {
       NODE_ENV: string
-      HOST: string
       PORT: number
       DATABASE_URL: string
       RATE_LIMIT_MAX: number
@@ -30,10 +29,6 @@ const schema = {
     NODE_ENV: {
       type: 'string',
       default: 'development'
-    },
-    HOST: {
-      type: 'string',
-      default: '0.0.0.0'
     },
     PORT: {
       type: 'number',
