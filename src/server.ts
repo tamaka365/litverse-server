@@ -71,8 +71,9 @@ closeWithGrace({ delay: 1000 }, async ({ err }) => {
 try {
   await app.ready()
   const port = app.config.PORT
-  await app.listen({ port })
-  app.log.info(`http://localhost:${port}`)
+  const host = process.env.HOST || '0.0.0.0'
+  await app.listen({ port, host })
+  app.log.info(`Server listening on http://${host}:${port}`)
 } catch (err) {
   app.log.error(err)
   process.exit(1)
