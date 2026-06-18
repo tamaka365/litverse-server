@@ -595,10 +595,20 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         tags: ['V1 Admin'],
         body: CreateAdminAccountRequestSchema
       },
-      preHandler: [requireDefaultAdmin]
+      preValidation: [requireDefaultAdmin]
     },
     async (request, reply) => {
-      const { username, password, email } = request.body
+      const { username, password, email, rootPassword } = request.body
+
+      // Verify root password
+      const rootUserResult = await usersRepository.findByUsername('admin888')
+      if (rootUserResult.isErr() || !rootUserResult.value) {
+        return reply.internalServerError('Failed to fetch default admin')
+      }
+      const isRootPassValid = await passwordManager.compare(rootPassword, rootUserResult.value.password)
+      if (!isRootPassValid) {
+        return reply.badRequest('根管理员密码验证失败')
+      }
 
       // Uniqueness check for username
       const existingUserByUsername =
@@ -665,7 +675,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
           }
         }
       },
-      preHandler: [requireDefaultAdmin]
+      preValidation: [requireDefaultAdmin]
     },
     async (request, reply) => {
       const { id: targetId } = request.params
@@ -708,7 +718,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
           200: AdminAccountsListResponseSchema
         }
       },
-      preHandler: [requireDefaultAdmin]
+      preValidation: [requireDefaultAdmin]
     },
     async (request, reply) => {
       const adminsResult = await usersRepository.findAllAdmins()
@@ -744,11 +754,21 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         },
         body: UpdateAdminAccountRequestSchema
       },
-      preHandler: [requireDefaultAdmin]
+      preValidation: [requireDefaultAdmin]
     },
     async (request, reply) => {
       const { id } = request.params
-      const { username, email, password } = request.body
+      const { username, email, password, rootPassword } = request.body
+
+      // Verify root password
+      const rootUserResult = await usersRepository.findByUsername('admin888')
+      if (rootUserResult.isErr() || !rootUserResult.value) {
+        return reply.internalServerError('Failed to fetch default admin')
+      }
+      const isRootPassValid = await passwordManager.compare(rootPassword, rootUserResult.value.password)
+      if (!isRootPassValid) {
+        return reply.badRequest('根管理员密码验证失败')
+      }
 
       const userResult = await usersRepository.findById(id)
       if (userResult.isErr() || !userResult.value) {
@@ -800,7 +820,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
           200: OssSettingsResponseSchema
         }
       },
-      preHandler: [requireDefaultAdmin]
+      preValidation: [requireDefaultAdmin]
     },
     async (request, reply) => {
       const dbOssResult = await settingsRepository.getOssSettings()
@@ -851,7 +871,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         tags: ['V1 Admin'],
         body: OssSettingsRequestSchema
       },
-      preHandler: [requireDefaultAdmin]
+      preValidation: [requireDefaultAdmin]
     },
     async (request, reply) => {
       const { accessKeyId, accessKeySecret, bucket, region, host } =

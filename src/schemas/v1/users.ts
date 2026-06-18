@@ -62,11 +62,23 @@ export const AdminUsersListResponseSchema = wrapResponseSchema(
 export const CreateAdminAccountRequestSchema = Type.Object({
   username: Type.String({ minLength: 2, maxLength: 50 }),
   password: Type.String({ minLength: 6, maxLength: 50 }),
-  email: Type.String({ format: 'email' })
+  email: Type.String({ format: 'email' }),
+  rootPassword: Type.String({ minLength: 1 })
 })
 
 export type CreateAdminAccountRequest = Static<
   typeof CreateAdminAccountRequestSchema
+>
+
+export const UpdateAdminAccountRequestSchema = Type.Object({
+  username: Type.Optional(Type.String({ minLength: 2, maxLength: 50 })),
+  email: Type.Optional(Type.String({ format: 'email' })),
+  password: Type.Optional(Type.String({ minLength: 6, maxLength: 50 })),
+  rootPassword: Type.String({ minLength: 1 })
+})
+
+export type UpdateAdminAccountRequest = Static<
+  typeof UpdateAdminAccountRequestSchema
 >
 
 export const UpdateAdminPasswordRequestSchema = Type.Object({
@@ -101,12 +113,3 @@ export type AdminAccountsListResponse = Static<
   typeof AdminAccountsListResponseSchema
 >
 
-export const UpdateAdminAccountRequestSchema = Type.Object({
-  username: Type.Optional(Type.String({ minLength: 2, maxLength: 50 })),
-  email: Type.Optional(Type.String({ format: 'email' })),
-  password: Type.Optional(Type.String({ minLength: 6, maxLength: 50 }))
-})
-
-export type UpdateAdminAccountRequest = Static<
-  typeof UpdateAdminAccountRequestSchema
->

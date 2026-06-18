@@ -400,12 +400,27 @@ describe('V1 Litverse API Integration Tests', () => {
         payload: {
           username: subAdminUser,
           password: 'Password123$',
-          email: subAdminEmail
+          email: subAdminEmail,
+          rootPassword: 'admin888'
         }
       })
       assert.strictEqual(createAdminRes.statusCode, 200)
       const newAdminData = JSON.parse(createAdminRes.payload).data
       assert.ok(newAdminData.id)
+
+      // Test validation logic: root password invalid
+      const createBadRootPassRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/admin/accounts',
+        headers: { Authorization: `Bearer ${adminToken}` },
+        payload: {
+          username: `rand_usr_bad_${rand}`,
+          password: 'Password123$',
+          email: `rand_usr_bad_${rand}@example.com`,
+          rootPassword: 'wrong_root_password'
+        }
+      })
+      assert.strictEqual(createBadRootPassRes.statusCode, 400)
 
       // Test validation logic: username conflict
       const createConflictRes = await app.inject({
@@ -415,7 +430,8 @@ describe('V1 Litverse API Integration Tests', () => {
         payload: {
           username: subAdminUser,
           password: 'Password123$',
-          email: `admin888_sub2_${rand}@example.com`
+          email: `admin888_sub2_${rand}@example.com`,
+          rootPassword: 'admin888'
         }
       })
       assert.strictEqual(createConflictRes.statusCode, 409)
@@ -512,7 +528,8 @@ describe('V1 Litverse API Integration Tests', () => {
         payload: {
           username: activeSubAdminUser,
           password: 'Password123$',
-          email: activeSubAdminEmail
+          email: activeSubAdminEmail,
+          rootPassword: 'admin888'
         }
       })
       assert.strictEqual(createActiveSubRes.statusCode, 200)
@@ -578,7 +595,8 @@ describe('V1 Litverse API Integration Tests', () => {
         payload: {
           username: updatedSubUsername,
           email: updatedSubEmail,
-          password: 'NewPassword321$'
+          password: 'NewPassword321$',
+          rootPassword: 'admin888'
         }
       })
       assert.strictEqual(updateSubRes.statusCode, 200)
