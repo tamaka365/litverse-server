@@ -4,6 +4,8 @@ RUN npm install -g pnpm
 COPY package.json pnpm-lock.yaml tsconfig.json ./
 RUN pnpm install --frozen-lockfile
 COPY src ./src
+# 解决构建期没有运行中数据库导致类型丢失的问题，将静态生成的数据库定义拷入 node_modules 中
+RUN cp src/types/db.d.ts node_modules/kysely-codegen/dist/db.d.ts
 RUN pnpm run build
 RUN pnpm prune --prod
 
