@@ -607,6 +607,29 @@ describe('V1 Litverse API Integration Tests', () => {
       assert.strictEqual(foundUpdatedSub.username, updatedSubUsername)
       assert.strictEqual(foundUpdatedSub.email, updatedSubEmail)
 
+      // Verify that sub-admin cannot get OSS settings
+      const getOssForbidden = await app.inject({
+        method: 'GET',
+        url: '/api/v1/admin/settings/oss',
+        headers: { Authorization: `Bearer ${activeSubToken}` }
+      })
+      assert.strictEqual(getOssForbidden.statusCode, 403)
+
+      // Verify that sub-admin cannot update OSS settings
+      const updateOssForbidden = await app.inject({
+        method: 'PUT',
+        url: '/api/v1/admin/settings/oss',
+        headers: { Authorization: `Bearer ${activeSubToken}` },
+        payload: {
+          accessKeyId: 'forbidden_id',
+          accessKeySecret: 'forbidden_secret',
+          bucket: 'forbidden-bucket',
+          region: 'oss-cn-beijing',
+          host: 'https://forbidden-bucket.oss-cn-beijing.aliyuncs.com'
+        }
+      })
+      assert.strictEqual(updateOssForbidden.statusCode, 403)
+
       // Clean up the active sub admin
       const deleteActiveSubRes = await app.inject({
         method: 'DELETE',

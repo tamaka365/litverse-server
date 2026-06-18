@@ -799,7 +799,8 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         response: {
           200: OssSettingsResponseSchema
         }
-      }
+      },
+      preHandler: [requireDefaultAdmin]
     },
     async (request, reply) => {
       const dbOssResult = await settingsRepository.getOssSettings()
@@ -849,7 +850,8 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       schema: {
         tags: ['V1 Admin'],
         body: OssSettingsRequestSchema
-      }
+      },
+      preHandler: [requireDefaultAdmin]
     },
     async (request, reply) => {
       const { accessKeyId, accessKeySecret, bucket, region, host } =
