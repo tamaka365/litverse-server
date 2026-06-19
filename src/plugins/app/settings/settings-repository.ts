@@ -118,6 +118,59 @@ export function createSettingsRepository(fastify: FastifyInstance) {
           }
         })
       )
+    },
+
+    async getCdnSettings() {
+      return toResult(
+        db
+          .selectFrom('system_settings')
+          .select(['key', 'value'])
+          .where('key', 'like', 'cdn_%')
+          .execute()
+          .then((rows) => {
+            const settings: Record<string, string> = {}
+            for (const row of rows) {
+              settings[row.key] = row.value
+            }
+            return {
+              enabled: settings['cdn_enabled'] === 'true',
+              domain: settings['cdn_domain'] || ''
+            }
+          })
+      )
+    },
+
+    async setCdnSettings(settings: { enabled: boolean; domain: string }) {
+      const nowSeconds = Math.floor(Date.now() / 1000)
+      const data = [
+        {
+          key: 'cdn_enabled',
+          value: settings.enabled ? 'true' : 'false',
+          updated_at: nowSeconds
+        },
+        {
+          key: 'cdn_domain',
+          value: settings.domain,
+          updated_at: nowSeconds
+        }
+      ]
+
+      return toResult(
+        db.transaction().execute(async (trx) => {
+          for (const item of data) {
+            await trx
+              .insertInto('system_settings')
+              .values(item)
+              .onConflict((oc) =>
+                oc.column('key').doUpdateSet({
+                  value: item.value,
+                  updated_at: nowSeconds
+                })
+              )
+              .execute()
+          }
+        })
+      )
     }
   }
 }

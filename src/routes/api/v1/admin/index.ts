@@ -28,7 +28,10 @@ import {
 import {
   OssSettingsRequest,
   OssSettingsRequestSchema,
-  OssSettingsResponseSchema
+  OssSettingsResponseSchema,
+  CdnSettingsRequest,
+  CdnSettingsRequestSchema,
+  CdnSettingsResponseSchema
 } from '../../../../schemas/v1/settings.js'
 import { DashboardStatsResponseSchema } from '../../../../schemas/v1/stats.js'
 import {
@@ -910,6 +913,63 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       }
 
       return successResponse(null, 'OSS settings updated successfully')
+    }
+  )
+
+  // --- 7.9.1 Get Aliyun CDN Settings ---
+  fastify.get(
+    '/settings/cdn',
+    {
+      schema: {
+        tags: ['V1 Admin'],
+        response: {
+          200: CdnSettingsResponseSchema
+        }
+      },
+      preValidation: [requireDefaultAdmin]
+    },
+    async (request, reply) => {
+      const dbCdnResult = await settingsRepository.getCdnSettings()
+      if (dbCdnResult.isErr()) {
+        log.error(
+          `Failed to retrieve CDN settings: ${dbCdnResult.error.message}`
+        )
+        return reply.internalServerError('Database error')
+      }
+
+      return successResponse({
+        enabled: dbCdnResult.value.enabled,
+        domain: dbCdnResult.value.domain
+      })
+    }
+  )
+
+  // --- 7.9.2 Set Aliyun CDN Settings ---
+  fastify.put<{ Body: CdnSettingsRequest }>(
+    '/settings/cdn',
+    {
+      schema: {
+        tags: ['V1 Admin'],
+        body: CdnSettingsRequestSchema
+      },
+      preValidation: [requireDefaultAdmin]
+    },
+    async (request, reply) => {
+      const { enabled, domain } = request.body
+
+      const updateResult = await settingsRepository.setCdnSettings({
+        enabled,
+        domain
+      })
+
+      if (updateResult.isErr()) {
+        log.error(
+          `Failed to update CDN settings in database: ${updateResult.error.message}`
+        )
+        return reply.internalServerError('Failed to save CDN settings')
+      }
+
+      return successResponse(null, 'CDN settings updated successfully')
     }
   )
 }

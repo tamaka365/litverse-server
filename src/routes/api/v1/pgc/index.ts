@@ -7,7 +7,7 @@ import {
 import { successResponse } from '../../../../utils/response.js'
 
 const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
-  const { artworksRepository, log } = fastify
+  const { artworksRepository, settingsRepository, config, log } = fastify
 
   fastify.get<{ Querystring: ArtworksQuery }>(
     '/artworks',
@@ -35,11 +35,35 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         return reply.internalServerError('Database error')
       }
 
+      const dbOssResult = await settingsRepository.getOssSettings()
+      const dbCdnResult = await settingsRepository.getCdnSettings()
+
+      const bucket =
+        (dbOssResult.isOk() && dbOssResult.value.bucket) ||
+        config.ALIYUN_OSS_BUCKET ||
+        'litverse-bucket'
+      const region =
+        (dbOssResult.isOk() && dbOssResult.value.region) ||
+        config.ALIYUN_OSS_REGION ||
+        'oss-cn-hangzhou'
+      const ossHost = `${bucket}.${region}.aliyuncs.com`
+
+      const cdnEnabled = dbCdnResult.isOk() && dbCdnResult.value.enabled
+      const cdnDomain =
+        (dbCdnResult.isOk() && dbCdnResult.value.domain) || ''
+
+      const formatMediaUrl = (url: string) => {
+        if (!url) return ''
+        if (!cdnEnabled || !cdnDomain) return url
+        const cleanDomain = cdnDomain.replace(/^https?:\/\//i, '')
+        return url.replace(ossHost, cleanDomain).replace(/^http:\/\//i, 'https://')
+      }
+
       const list = artworksResult.value.map((art) => ({
         id: art.id,
         type: art.type as 'image' | 'video' | 'audio',
-        url: art.url,
-        mediaUrl: art.mediaUrl,
+        url: formatMediaUrl(art.url),
+        mediaUrl: formatMediaUrl(art.mediaUrl),
         aspectRatio: art.aspectRatio,
         title: art.title,
         createdAt: new Date(art.createdAt * 1000).toISOString()

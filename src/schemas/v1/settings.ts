@@ -14,3 +14,15 @@ export type OssSettingsRequest = Static<typeof OssSettingsRequestSchema>
 export const OssSettingsResponseSchema = wrapResponseSchema(
   OssSettingsRequestSchema
 )
+
+export const CdnSettingsRequestSchema = Type.Object({
+  enabled: Type.Boolean(),
+  domain: Type.String()
+})
+
+export type CdnSettingsRequest = Static<typeof CdnSettingsRequestSchema>
+
+export const CdnSettingsResponseSchema = wrapResponseSchema(
+  CdnSettingsRequestSchema
+)
+
