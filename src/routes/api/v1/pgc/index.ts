@@ -21,11 +21,10 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       }
     },
     async (request, reply) => {
-      const { type, limit = 24 } = request.query
+      const { type } = request.query
 
       const artworksResult = await artworksRepository.findArtworks({
-        type: type as any,
-        limit
+        type: type as any
       })
 
       if (artworksResult.isErr()) {

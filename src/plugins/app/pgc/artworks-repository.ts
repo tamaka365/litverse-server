@@ -15,9 +15,8 @@ export function createArtworksRepository(fastify: FastifyInstance) {
   return {
     async findArtworks(options: {
       type?: 'image' | 'video' | 'audio'
-      limit: number
     }) {
-      const { type, limit } = options
+      const { type } = options
       let query = db
         .selectFrom('pgc_artworks')
         .select([
@@ -36,7 +35,7 @@ export function createArtworksRepository(fastify: FastifyInstance) {
       }
 
       return toResult(
-        query.orderBy('created_at', 'desc').limit(limit).execute()
+        query.orderBy('created_at', 'desc').execute()
       )
     },
 

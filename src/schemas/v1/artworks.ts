@@ -19,8 +19,7 @@ export const ArtworkSchema = Type.Object({
 
 // --- Get Artworks List ---
 export const ArtworksQuerySchema = Type.Object({
-  type: Type.Optional(ArtworkTypeSchema),
-  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 24 }))
+  type: Type.Optional(ArtworkTypeSchema)
 })
 
 export type ArtworksQuery = Static<typeof ArtworksQuerySchema>
